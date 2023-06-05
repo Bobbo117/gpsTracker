@@ -2,7 +2,6 @@
 
  Tracks location on street map via cellular IoT
 
-
 <br>
 
 ## How It Works
@@ -16,6 +15,7 @@ An inexpensive IoT SIM card gains access to the cloud via a cellular connection.
 
 -   **LiLLYGO** `SIM7000G` board with 
     integrated **ESP32** Wrover
+
     http://www.lilygo.cn/prod_view.aspx?TypeId=50033&Id=1246&FId=t3:50033:3
 
 <br>
@@ -46,6 +46,7 @@ platform to the listed website services.
 ### Builtin Modules
 
 -   An optional `SSD1306` OLED display is useful for testing 
+
     https://www.amazon.com/gp/product/B07W1PT6VK
 
 <br>
