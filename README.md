@@ -8,6 +8,8 @@
 
 An inexpensive IoT SIM card gains access to the cloud via a cellular connection.
 
+https://www.hologram.io/
+
 <br>
 <br>
 
@@ -15,8 +17,8 @@ An inexpensive IoT SIM card gains access to the cloud via a cellular connection.
 
 -   **LiLLYGO** `SIM7000G` board with 
     integrated **ESP32** Wrover
-
-    http://www.lilygo.cn/prod_view.aspx?TypeId=50033&Id=1246&FId=t3:50033:3
+    
+    https://www.amazon.com/LILYGO-Development-ESP32-WROVER-B-Battery-T-SIM7000G/dp/B099RQ7BSR
 
 <br>
 <br>
@@ -47,7 +49,7 @@ platform to the listed website services.
 
 -   An optional `SSD1306` OLED display is useful for testing 
 
-    https://www.amazon.com/gp/product/B07W1PT6VK
+    https://www.amazon.com/Dorhea-Display-SSD1306-Self-Luminous-Raspberry/dp/B0837DLWVH/ref=sr_1_20?crid=2V7Q8UDD9PKSF&keywords=oled+128x64&qid=1686514637&s=electronics&sprefix=64x128+oled%2Celectronics%2C128&sr=1-20
 
 <br>
 
