@@ -1,7 +1,7 @@
 # gpsTracker
 
  Tracks location on street map via cellular IoT
-![Screenshot_20230607-152750_Chrome](https://github.com/Bobbo117/gpsTracker/assets/58577175/a791cbf5-1b8d-4bc5-b081-fef47faf3b80)
+![Screenshot_20230607-152750_Chrome (2)](https://github.com/Bobbo117/gpsTracker/assets/58577175/fc3120e6-85c4-46cd-b3f7-e0061ddb6436)
 
 <br>
 
@@ -20,6 +20,9 @@ https://www.hologram.io/
     integrated **ESP32** Wrover
     
     https://www.amazon.com/LILYGO-Development-ESP32-WROVER-B-Battery-T-SIM7000G/dp/B099RQ7BSR
+    
+    ![20230607_105519](https://github.com/Bobbo117/gpsTracker/assets/58577175/be021b8f-4aa4-4a6b-95e0-d9151d2ecfd4)
+
 
 <br>
 <br>
