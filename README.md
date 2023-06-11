@@ -1,6 +1,7 @@
 # gpsTracker
 
  Tracks location on street map via cellular IoT
+ 
 ![Screenshot_20230607-152750_Chrome (2)](https://github.com/Bobbo117/gpsTracker/assets/58577175/fc3120e6-85c4-46cd-b3f7-e0061ddb6436)
 
 <br>
