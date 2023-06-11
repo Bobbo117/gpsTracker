@@ -2,7 +2,8 @@
 
  Tracks location on street map via cellular IoT
  
-![Screenshot_20230607-152750_Chrome (2)](https://github.com/Bobbo117/gpsTracker/assets/58577175/fc3120e6-85c4-46cd-b3f7-e0061ddb6436)
+![Screenshot_20230607-152750_Chrome](https://github.com/Bobbo117/gpsTracker/assets/58577175/db9bc860-5f36-4b81-a104-12078f6f50c4)
+
 
 <br>
 
