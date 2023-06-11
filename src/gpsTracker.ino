@@ -1,17 +1,20 @@
 
 const char* APP = "gpsTracker ";
-const char* VERSION = "2023 v0605";
+const char* VERSION = "2023 v0611";
 
 /////////////////////////////////////////////////////////////////////////////////////
 //
-// AmbientHUB_GPS:
+// gpsTracker:
 //
-//  1. A stand-alone GPS Tracker which transmits to user dashboard via IoT cellular connection.
+//  1. A stand-alone GPS Tracker which transmits location to an adafruit.io user dashboard map via IoT cellular connection.
 //
 ///////////////////////////////////////////////////////////////////////////////////////
 //
-//  Copyright 2022 Bob Jessup  MIT License:
-//  https://github.com/Bobbo117/Cellular-IoT-Monitor/blob/main/LICENSE
+//  Copyright 2023 Bob Jessup  MIT License:
+//  https://github.com/Bobbo117/gpsTraacker/blob/main/LICENSE
+//
+//  Certain code is adapted from the following:
+//  https://github.com/adafruit/Adafruit_FONA
 //
 //////////////////////////////////////////////////////////////  
 // *******     Setup secrets.h file for:        *********** //
@@ -45,31 +48,27 @@ const char* VERSION = "2023 v0605";
   // 1. Select optional debug aids/monitors:
   //*******************************
   #define OLED_               // 64x128 pixel OLED display (optional - comment out if no OLED)
-  #define printMode           // comment out if you don't want brief status display of sensor readings, threshholds and cellular interactions to pc
+  #define printMode           // comment out if you don't want brief status display of sensor readings, threshholds and cellular interactions to serial monitor
 
   //*****************
   // 2. Timing Parameters
   //*****************
 
-  const int espSleepSeconds = 15*60; //48*60;  // or 0; heartbeat period OR wakes up out of sleepMode after sleepMinutes           
-  const long espAwakeSeconds = 5*60; //5*60; //12*60; //12*60; // interval in seconds to stay awake as HUB; you dont need to change this if espSleepSeconds = 0 indicating no sleep  
+  const int espSleepSeconds = 15*60; //or 0; heartbeat period OR wakes up out of sleepMode after sleepMinutes           
+  const long espAwakeSeconds = 3*60; // interval in seconds to stay awake; you dont need to change this if espSleepSeconds = 0 indicating no sleep  
   uint8_t postTries = 3;  //allowed data post attempts
   uint8_t gpsTries = 10;
-  uint8_t gpsDelay = 10;
-  
+  uint8_t gpsDelay = 10;  //seconds delay between successive attempts
+  float targetAccuracy = 1.0;  //range 1-4 (lower is more accurate).
   
   //*****************
   // 3. Miscellaneous
   //*****************
 
   uint64_t uS_TO_S_FACTOR = 1000000;  // Conversion factor for micro seconds to seconds  
-  char buf[200],buf2[20];           //formatData() sets up buf with data to be sent to the cloud. Buf2 is working buffer.
-  char prelude[20];                 //included after datatag in formatData() for special msgs such as "GARAGE OPEN!")
-  
-  uint8_t type;                    //fona.type
-  char imei[16] = {0};             // 16 character buffer for IMEI
-
-  uint8_t wakeupID;                   //reason sensor wode up; see readWakeupID 
+  char buf[200],buf2[20];             // formatGPSData() sets up buf with data to be sent to the cloud. Buf2 is working buffer.
+  uint8_t type;                       // fona.type
+  char imei[16] = {0};                // 16 character buffer for IMEI
 
   //*****************
   // Timer stuff
@@ -93,10 +92,9 @@ const char* VERSION = "2023 v0605";
   #define pinFONA_PWRKEY 4 
 
   //*****************
-  // OLED Libraries
+  // OLED Libraries for optional OLED
   //*****************
   #ifdef OLED_
-    //#define FORMAT1  //HUB only format with temp hum pres dbm sensors
     #include "SSD1306Ascii.h"     // low overhead library text only
     #include "SSD1306AsciiWire.h"
     #define I2C_ADDRESS 0x3C      // 0x3C+SA0 - 0x3C or 0x3D
@@ -109,7 +107,6 @@ const char* VERSION = "2023 v0605";
   //*****************
 
   #include "Adafruit_FONA.h"  //IMPORTANT! get it from https://github.com/botletics/SIM7000-LTE-Shield/tree/master/Code
-  //#include <Adafruit_FONA.h>
   Adafruit_FONA_LTE fona = Adafruit_FONA_LTE();
   #include <HardwareSerial.h>
   HardwareSerial fonaSS(1);
@@ -120,34 +117,34 @@ const char* VERSION = "2023 v0605";
   //*****************
 
   uint8_t gpsDataValid = 1;     //1=invalid, 0 = valid data
-    typedef struct gps {  // create an definition of paarameters
-      float lat;             
-      float lon;            
-      float spd;            
-      float alt;       
-      int vsat;            
-      int usat;             // # used satelites
-      float accuracy;
-      int year;
-      int month;
-      int day;
-      int hour;
-      int minute;
-      int sec;
-    } gps;
-    
-    gps gpsData ={0,0,0,0,0,0,0,0,0,0,0,0,0};    
+  typedef struct gps {  // create a definition of paarameters
+    float lat;             
+    float lon;            
+    float spd;            
+    float hdg;
+    float altitude;       
+    int vsat;            
+    int usat;             // # used satelites
+    float accuracy;
+    int year;
+    int month;
+    int day;
+    int hour;
+    int minute;
+    int sec;
+  } gps;
   
-    #define TINY_GSM_MODEM_SIM7000
-    #define TINY_GSM_RX_BUFFER 1024 // Set RX buffer to 1Kb
-    #include <TinyGsmClient.h>
+  gps gpsData ={0,0,0,0,0,0,0,0,0,0,0,0,0};    
 
-    // Set serial for debug console (to Serial Monitor, default speed 115200)
- //   #define SerialMon Serial
-    // Set serial for AT commands
-    #define SerialAT  Serial1
+  float priorLat, priorLon, priorSpd,priorAccuracy;
+  #define TINY_GSM_MODEM_SIM7000
 
-    TinyGsm modem(SerialAT);
+  #include <TinyGsmClient.h>
+
+  // Set serial for AT commands
+  #define SerialAT  Serial1
+
+  TinyGsm modem(SerialAT);
 
   //*****************
   //  MQTT PARAMETERS
@@ -163,10 +160,10 @@ const char* VERSION = "2023 v0605";
   // Setup the FONA MQTT class by passing in the FONA class and MQTT server and login details.
   Adafruit_MQTT_FONA mqtt(&fona, adaMQTT_SERVER, adaMQTT_PORT, SECRET_adaMQTT_USERNAME, SECRET_adaMQTT_KEY);
   Adafruit_MQTT_Publish feed_gps = Adafruit_MQTT_Publish(&mqtt, SECRET_adaMQTT_USERNAME "/f/gps/csv");  
-  Adafruit_MQTT_Publish feed_gmsloc = Adafruit_MQTT_Publish(&mqtt, SECRET_adaMQTT_USERNAME "/f/gmsloc/csv");
 
 //*********************************
 int activateCellular(){
+  //Active cellular connecton for transmission of gps info
   #ifdef printMode
     Serial.println(F("*activateCellular*"));
   #endif
@@ -192,7 +189,8 @@ int activateCellular(){
 }
 
 //******************************
-int activateGPRS(){             // Activate General Packet Radio Service
+int activateGPRS(){             
+  // Activate General Packet Radio Service
   #ifdef printMode
     Serial.println(F("*activateGPRS*")); 
     Serial.println(F("fona.enableGPRS(true)"));
@@ -221,7 +219,8 @@ int activateGPRS(){             // Activate General Packet Radio Service
 }
 
 //*********************************
-void activateModem(){              // Set modem to full functionality
+void activateModem(){              
+  // Set modem to full functionality
   #ifdef printMode
     Serial.println(F("*activateModem*"));
     Serial.println(F("fona.setFuntionality(1)")); 
@@ -253,8 +252,6 @@ void activateModem(){              // Set modem to full functionality
     3 CAT-M and NB-IoT
   */
   fona.setPreferredLTEMode(1);
-  //fona.setOperatingBand("CAT-M", 12); // AT&T
-  //fona.setOperatingBand("CAT-M", 13); // Verizon does not work FL ??
 }
 
 //*********************************
@@ -283,6 +280,7 @@ int connectToCellularNetwork() {
 }
 //*************************
   void displayGPS(){
+    // Display time, speed, lat, lon, accuracy, and # satelites used on optional OLED display
     #ifdef printMode
       Serial.println(F("*displayGPS*"));
     #endif  
@@ -317,7 +315,7 @@ int connectToCellularNetwork() {
         }else{
           oled.println("E " + String(gpsData.lon, 6) );
         }  
-        oled.print("Alt " + String(gpsData.alt, 0) + " " );
+        oled.print("Acc " + String(gpsData.accuracy,1) + " " );
         oled.println("# " + String(gpsData.usat));
         
       //oled.println("  ");  
@@ -325,7 +323,8 @@ int connectToCellularNetwork() {
 }
 
 //***********************************
-static int espAwakeTimeIsUp(long msec){      
+static int espAwakeTimeIsUp(long msec){ 
+  //Determine if timer msec has elapsed      
   static unsigned long previousMillis = 0;   
   unsigned long currentMillis = millis();
   if (currentMillis - previousMillis >= msec) {
@@ -337,39 +336,39 @@ static int espAwakeTimeIsUp(long msec){
 } 
 
 //*********************************
-int8_t formatGPSData(){       //upload sensor data to  adaFruit, dweet.io or IFTTT
+int8_t formatData(){       
+  //format gps data for upload to  adaFruit
 
   #ifdef printMode 
     Serial.println(F("*formatGPSData*"));
   #endif
 
   strcpy(buf,""); 
-  dtostrf(gpsData.spd*.621371192, 1, 0, buf2);  //*.621371192 for mph
+  dtostrf(gpsData.accuracy, 2, 2, buf2); 
   strcat(buf, buf2);
   strcat(buf,",");
-  dtostrf(gpsData.lat, 1, 6, buf2); 
+  dtostrf(gpsData.lat, 2, 7, buf2); 
   strcat(buf, buf2);
   strcat(buf,",");
-  dtostrf(gpsData.lon, 1, 6, buf2); 
+  dtostrf(gpsData.lon, 2, 7, buf2); 
   strcat(buf, buf2);
   strcat(buf,",");
-  dtostrf(gpsData.alt, 1, 0, buf2); 
+  dtostrf(gpsData.spd*.621371192, 2, 0, buf2);  //*.621371192 for mph
   strcat(buf, buf2);
-  dtostrf(gpsData.accuracy, 1, 4, buf2); 
-  strcat(buf, buf2);
+  //dtostrf(gpsData.accuracy, 2, 2, buf2); 
+  //strcat(buf, buf2);
   buf2[0]=0;
   strcat(buf,buf2);  //null terminate
 
   #ifdef printMode
     Serial.print(F("buf: "));Serial.println(buf);
   #endif
-
 }
 
 //*********************************
 int8_t MQTT_connect() {
-  int8_t retn = -1;  //returns 0 if connection success
   // Connect and reconnect as necessary to the MQTT server.
+  int8_t retn = -1;  //returns 0 if connection success
   
   #ifdef printMode
     Serial.println(F("*MQTT_connect*"));
@@ -434,6 +433,7 @@ int8_t MQTT_publish_checkSuccess(Adafruit_MQTT_Publish &feed, const char *feedCo
 
 //************************************
 void napTime(){
+  //Determine if awake time has elapsed and if so, put processor to sleep
   if (espSleepSeconds >0 && espAwakeSeconds >0 && espAwakeTimeIsUp(espAwakeSeconds*1000) ==1 ){
     #ifdef printMode
       Serial.println(F(" "));Serial.print(F("sleeping "));Serial.print(espSleepSeconds);Serial.println(F(" seconds..zzzz"));
@@ -444,7 +444,8 @@ void napTime(){
 }
     
 //*********************************
-void powerUpSimModule() {                // Power on the module
+void powerUpSimModule() {                
+  // Power on the SIM module
   pinMode(pinFONA_PWRKEY,OUTPUT);
   digitalWrite(pinFONA_PWRKEY, LOW);
   delay(1000);                           // datasheet ton = 1 sec
@@ -452,47 +453,67 @@ void powerUpSimModule() {                // Power on the module
   delay(5000);
 }     
                  
-//*********************************
+//***************************
 uint8_t readGPS(){
+  //Fetch the GPS data
+  float priorAccuracy=100.0;
+  float priorLat, priorLon, priorSpeed;
   gpsDataValid = 1;
-
-  // Only in LillyGo version 20200415 is there a function to control GPS power
+  uint8_t gpsCount = 0;
   modem.sendAT("+SGPIO=0,4,1,1");
   if (modem.waitResponse(10000L) != 1) {
     #ifdef printMode
       Serial.println(" SGPIO=0,4,1,1 false ");
     #endif  
   }
-
   modem.enableGPS();
   
   for (int8_t i = gpsTries; i; i--) { 
     #ifdef printMode
-      Serial.println("Requesting current GPS/GNSS/GLONASS location");
+      Serial.print("Reading GPS..");
     #endif
-    if (modem.getGPS(&gpsData.lat, &gpsData.lon, &gpsData.spd, &gpsData.alt, 
+    if (modem.getGPS(&gpsData.lat, &gpsData.lon, &gpsData.spd, &gpsData.hdg, 
       &gpsData.vsat, &gpsData.usat, &gpsData.accuracy,
       &gpsData.year, &gpsData.month, &gpsData.day, 
       &gpsData.hour, &gpsData.minute, &gpsData.sec)) 
     {
- 
+      gpsCount=gpsCount+1;
       gpsDataValid = 0; 
       #ifdef printMode
-        Serial.println("Latitude: " + String(gpsData.lat, 8) + "\tLongitude: " + String(gpsData.lon, 8));
-        Serial.println("Speed: " + String(gpsData.spd) + "\tAltitude: " + String(gpsData.alt));
-        Serial.println("Visible Satellites: " + String(gpsData.vsat) + "\tUsed Satellites: " + String(gpsData.usat));
-        Serial.println("Accuracy: " + String(gpsData.accuracy));
-        Serial.println("Year: " + String(gpsData.year) + "\tMonth: " + String(gpsData.month) + "\tDay: " + String(gpsData.day));
-        Serial.println("Hour: " + String(gpsData.hour) + "\tMinute: " + String(gpsData.minute) + "\tSecond: " + String(gpsData.sec));     
-      #endif      
-      break;
-    } 
-    else {
-      #ifdef printMode
-        Serial.print("Couldn't get GPS/GNSS/GLONASS location, retrying in ");Serial.print(gpsDelay);Serial.println(" sec.");
-      #endif  
-      delay(gpsDelay*1000);
+        Serial.println("");//Serial.println("");
+        if (gpsCount==1){
+          Serial.println(F("LAT              LON            KPH     HDG     ACC     SAT     uSAT"));
+        }  
+        Serial.print(String(gpsData.lat,8));Serial.print("\t");
+        Serial.print(String(gpsData.lon,8));Serial.print("\t");
+        Serial.print(gpsData.spd);Serial.print("\t");
+        //Serial.print(gpsData.alt);Serial.print("\t");
+        Serial.print(gpsData.hdg);Serial.print("\t");
+        Serial.print(gpsData.accuracy);Serial.print("\t");
+        Serial.print(gpsData.vsat);Serial.print("\t");
+        Serial.print(gpsData.usat);Serial.print("\t");
+      #endif   
+
+      if ( gpsData.accuracy<=targetAccuracy ){
+        break; 
+      }
+      if (gpsData.accuracy<priorAccuracy){
+        priorAccuracy=gpsData.accuracy;
+        priorLat=gpsData.lat;
+        priorLon = gpsData.lon;
+        priorSpeed = gpsData.spd;
+      }  
     }
+    #ifdef printMode
+      //Serial.println("Retrying in 6 sec.");
+    #endif  
+    delay(6000);
+  }
+  if (gpsDataValid == 0){
+    gpsData.accuracy = priorAccuracy;
+    gpsData.lat = priorLat;
+    gpsData.lon = priorLon;
+    gpsData.spd = priorSpeed;
   }
   #ifdef printMode
     Serial.println("Disabling GPS");
@@ -510,7 +531,7 @@ uint8_t readGPS(){
 }
 //**********************************        
 bool readNetStatus() {
-
+  //read the cellular net parameters
   int i = fona.getNetworkStatus();
   #ifdef printMode
     const char* networkStatus[]={"Not registered","Registered (home)","Not Registered (searching)","Denied","Unknown","Registered roaming"};    
@@ -600,7 +621,8 @@ int setupSimModule() {
 }
 
 //*********************************
-void simModuleOff(){    // Power off the SIM7000 module by goosing the PWR pin 
+void simModuleOff(){    
+  // Power off the SIM7000 module by goosing the PWR pin 
   #ifdef printMode
     Serial.println(F("*simModuleOff*"));  
   #endif    
@@ -613,12 +635,14 @@ void simModuleOff(){    // Power off the SIM7000 module by goosing the PWR pin
 }
 
 //**************************************
-void turnOnBoardLED(){              // Turn LED on 
+void turnOnBoardLED(){              
+  // Turn ESP32 Wrover LED on 
   digitalWrite(pinBoardLED, LOW);
 } 
 
 //*********************************    
-void turnOffBoardLED(){             // Turn LED off
+void turnOffBoardLED(){             
+  // Turn ESP32 Wrover LED off
   digitalWrite(pinBoardLED, HIGH);
 }    
 
@@ -627,12 +651,15 @@ void turnOffBoardLED(){             // Turn LED off
 //////////////////////
 
 void setup() {
-  
+  //This runs each time the ESP32 awakens
   pinMode(pinBoardLED,OUTPUT);
   pinMode(pinFONA_PWRKEY, OUTPUT);
   #ifdef printMode                 // if test mode
-    Serial.begin(115200);          //   Initialize Serial Monitor 
+    Serial.begin(115200);          // Initialize Serial Monitor 
     turnOnBoardLED();  
+    Serial.println(F("-----------------------"));
+    Serial.print("Application: "); Serial.println(APP);
+    Serial.print("Version: "); Serial.println(VERSION);
   #endif
   setupOledDisplay();             // Clears the OLED display if there is one
   setupGPS();                     // Turn on the modem                  
@@ -643,35 +670,38 @@ void setup() {
 // ***  Loop()  ***
 ////////////////// 
 void loop() {
+  //This runs a continuous loop in accordance with the following steps:
 
-  // Read GPS location and publish it
-  // successful? 
-  //    yes - go to sleep 
-  //    no  - is there still some awake time (espAwakeSeconds) available?
-  //      yes - try again from the beginning
-  //      no  - go to sleep
+  // 1. Read GPS location and publish it to adafruit.io gps feed via mqtt
+  //    successful? 
+  //    1a. yes - go to sleep 
+  // 2. no  - is there still some awake time (espAwakeSeconds) available?
+  //      2a. no  - go to sleep
+  // 3.   yes - try again from the beginning of the loop
   
 // 1. Fetch GPS reading 
   if (readGPS()==0){                    // continue if valid GPS reading exists
-    activateCellular();                 // activate cellular SIM7000 module 
+    activateCellular();                 // activate cellular communication 
     if(MQTT_connect()==0){              // continue if MQTT connection exists
-      formatGPSData();                  // format the GPS data into buf
+      formatData();                     // format the GPS data into buf
+      // publish the GPS info and verify success
       if(MQTT_publish_checkSuccess(feed_gps, buf)==0){ 
-                                        // publish the GPS info and verify success
-        simModuleOff();                 // power off the SIM7000 module                                   
+        //Success!
         displayGPS();                   // update OLED display if enabled
+        simModuleOff();                 // power off the SIM7000 module                                   
         #ifdef printMode              
           Serial.println(F(" "));Serial.print(F("sleeping "));Serial.print(espSleepSeconds);Serial.println(F(" seconds..zzzz"));
           delay(1000);
         #endif
+        //GPS successfully read and transmitted; Go to sleep
         ESP.deepSleep(espSleepSeconds * uS_TO_S_FACTOR); 
       }
     }
   }
 
-// 2. Power off SIM 7000 module and go to sleep if espAwakeSeconds have elapsed
+// 2. Step 1 failed; Power off SIM 7000 module and go to sleep if espAwakeSeconds have elapsed
   napTime();
 
-// 3. Loop back to step 1 to try again
-  delay(1000);    
+// 3. Loop back to step 1 to try again after delay
+  delay(gpsDelay*1000);    
 }
