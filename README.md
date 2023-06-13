@@ -31,7 +31,7 @@ https://www.hologram.io/
 
 ## Supported Protocols
 
-The **gpsTracker** software can transmit location using MQTT
+The **gpsTracker** software, written in C++ using the Arduimo IDE, can transmit location data using MQTT
 
 <br>
 <br>
