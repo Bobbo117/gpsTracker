@@ -14,7 +14,6 @@ An inexpensive IoT SIM card gains access to the cloud via a cellular connection.
 https://www.hologram.io/
 
 <br>
-<br>
 
 ## Tested With
 
@@ -25,13 +24,11 @@ https://www.hologram.io/
 
 
 <br>
-<br>
 
 ## Supported Protocols
 
 The **gpsTracker** software, written in C++ using the Arduimo IDE, can transmit location data using MQTT
 
-<br>
 <br>
 
 ## Formatting Options
@@ -40,12 +37,13 @@ The **gpsTracker** software collects the GPS values
 for periodic transmission via the **Hologram** IoT cellular 
 platform to the listed website services.
 
+<br>
+
 ### Supported Services via Cellular
 
 -    https://io.adafruit.com/ MQTT for dashboard and (potential) IFTTT webhook route
 
 
-<br>
 <br>
 
 
